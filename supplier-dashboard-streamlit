@@ -1,0 +1,39 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+st.set_page_config(page_title="Supplier Sales Dashboard", layout="wide")
+
+@st.cache_data
+def load_data(path):
+    df = pd.read_excel(path)
+    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    df["Month"] = pd.Categorical(df["Month"], categories=month_order, ordered=True)
+    return df.sort_values(["Supplier", "Year", "Month"])
+
+file_path = "supplier_sales_sample.xlsx"
+df = load_data(file_path)
+
+st.title("Supplier Sales Dashboard")
+st.write("Select a supplier to view sales summary and charts.")
+
+suppliers = sorted(df["Supplier"].dropna().unique())
+selected_supplier = st.selectbox("Choose supplier", suppliers)
+
+supplier_df = df[df["Supplier"] == selected_supplier].copy()
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Sales", f"₹{supplier_df['Sales'].sum():,.0f}")
+col2.metric("Average Monthly Sales", f"₹{supplier_df['Sales'].mean():,.0f}")
+col3.metric("Best Month Sales", f"₹{supplier_df['Sales'].max():,.0f}")
+
+monthly = supplier_df.groupby("Month", as_index=False)["Sales"].sum().sort_values("Month")
+fig_line = px.line(monthly, x="Month", y="Sales", markers=True, title=f"Monthly Sales Trend - {selected_supplier}")
+st.plotly_chart(fig_line, use_container_width=True)
+
+product_sales = supplier_df.groupby("Product", as_index=False)["Sales"].sum().sort_values("Sales", ascending=False)
+fig_bar = px.bar(product_sales, x="Product", y="Sales", title=f"Product-wise Sales - {selected_supplier}")
+st.plotly_chart(fig_bar, use_container_width=True)
+
+with st.expander("Show filtered data"):
+    st.dataframe(supplier_df, use_container_width=True)
